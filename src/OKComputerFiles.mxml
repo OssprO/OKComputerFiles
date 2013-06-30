@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.events.TextOperationEvent;
+			
+			private const PADDING:int = 15;
+			
+			private var selectedDir:File;
+			
+			private var dirFiles:Array;
+			[Bindable]
+			private var listDirFiles:ArrayCollection;
+			
+			protected function applyBatch(event:MouseEvent):void
+			{
+				var cont:int = 0;
+				for each(var file:Object in dirFiles){
+					var originalName:String = file.name as String;
+					var original:File = new File();
+					original.nativePath = selectedDirTextInput.text + "/" + originalName;
+					
+					var newName:String = listDirFiles[cont].Resultado;
+					
+					trace(newName);
+						
+					var newFile:File = new File();
+					newFile.nativePath = selectedDirTextInput.text + "/" + newName;	
+					
+					if(newName != originalName){
+						try{
+							original.copyTo(newFile, true);
+							original.deleteFile();
+						}catch(e:Error){
+							trace("Mismo nombre!!");
+							var dir:File = new File(); 
+							dir.nativePath = selectedDirTextInput.text + "/_TEMP";
+							dir.createDirectory(); 
+							var tempFile:File = new File();
+							tempFile.nativePath = selectedDirTextInput.text + "/_TEMP/" + newName;
+							
+							original.moveTo(tempFile, true);
+							
+							tempFile.moveTo(newFile, true);
+							
+							dir.deleteDirectory(true);
+							
+						}
+					}else if(!original.isDirectory || !original.isHidden){
+						
+					}
+					cont++;
+				}
+				
+				Alert.show("Archivos renombrados exitosamente!","Done");
+				getDirectory();
+			}
+			
+			protected function getDirectory(event:MouseEvent = null):void
+			{
+				selectedDir = new File();
+				if(event){
+					selectedDir.addEventListener(Event.SELECT, dirSelected); 
+					selectedDir.browseForDirectory("Select a directory..."); 
+					function dirSelected(e:Event):void { 
+						selectedDirTextInput.text = selectedDir.nativePath;
+						fillDataGrid(selectedDir);
+					}
+				}else{
+					selectedDir.nativePath = selectedDirTextInput.text;
+					fillDataGrid(selectedDir);
+				}
+				
+				selectedDirTextInput.enabled = false;
+			}
+			
+			protected function fillDataGrid(fileDir:File):void{
+				dirFiles = fileDir.getDirectoryListing();
+				listDirFiles = new ArrayCollection();
+				for each(var archivo:Object in dirFiles){
+					listDirFiles.addItem({Nombre: archivo.name, Resultado: archivo.name});
+					//listDirFiles.addItem(new ob);
+				}
+				//listDirFiles = new ArrayCollection(dirFiles.name); 
+			}
+			
+			protected function regExpTextInputChange(event:TextOperationEvent = null):void
+			{
+				if(regExpTextInput.text != ""){
+					applyRegExpBtn.enabled = true;
+					seccionReplace.enabled = true;
+				}else{
+					applyRegExpBtn.enabled = false;
+					seccionReplace.enabled = false;
+				}
+				actualizarDataGrid();
+			}
+			
+			
+			
+			protected function regExpDropDownChange(event:IndexChangeEvent):void
+			{
+				seccionNombre.visible = false;
+				switch(regEExpDropDown.selectedIndex){
+					case 0://Libre
+						regExpTextInput.text = "\\s";
+						replaceTextInput.text = "";
+						regExpTextInput.enabled = true;
+						replaceTextInput.enabled = true;
+						regExpTextInputChange();
+						break;
+					case 1://MAYUSCULAS
+						regExpTextInput.text = "String.toUpperCase()";
+						regExpTextInput.enabled = false;
+						replaceTextInput.text = "";
+						replaceTextInput.enabled = false;
+						setUpperCase();
+						break;
+					case 2://minusculas
+						regExpTextInput.text = "String.toLowerCase()";
+						regExpTextInput.enabled = false;
+						replaceTextInput.text = "";
+						replaceTextInput.enabled = false;
+						setLowerCase();
+						break;
+					case 3://Remplazar espacios por...
+						regExpTextInput.text = "\\s";
+						regExpTextInput.enabled = false;
+						replaceTextInput.text = "_";
+						replaceTextInput.enabled = true;
+						regExpTextInputChange();
+						break;
+					case 4://<Cadena>_<incremento>.<extension>;
+						regExpTextInput.text = "";
+						regExpTextInput.enabled = false;
+						replaceTextInput.text = "";
+						replaceTextInput.enabled = false;
+						seccionNombre.visible = true;
+						setCadenaIncrement();
+						break;
+					case 5://Timestamp
+						regExpTextInput.text = "";
+						regExpTextInput.enabled = false;
+						replaceTextInput.text = "<TIMESTAMP>";
+						replaceTextInput.enabled = false;
+						setTimestamp();
+						break;
+				}
+				
+			}
+			
+			private function actualizarDataGrid():void{
+				
+				if(listDirFiles){
+					var tempString:String;
+					var cont:int = 0;
+					for each(var renglon:Object in dirFiles){
+						tempString = getFileNameNoExtension(String(renglon.name).replace(stringToRegExp(regExpTextInput.text), replaceTextInput.text));
+						tempString = tempString + getExtension(String(renglon.name));
+						listDirFiles[cont].Resultado = tempString;
+						cont++;
+					}
+					
+					listDirFiles.refresh();
+				}
+			}
+			
+			private function setUpperCase():void{
+				if(listDirFiles){
+					var tempString:String;
+					var cont:int = 0;
+					for each(var renglon:Object in dirFiles){
+						tempString = getFileNameNoExtension(String(renglon.name)).toUpperCase() + getExtension(String(renglon.name));
+						listDirFiles[cont].Resultado = tempString;
+						cont++;
+					}
+					
+					listDirFiles.refresh();
+					applyRegExpBtn.enabled = true;
+				}
+			}
+			
+			private function setLowerCase():void{
+				if(listDirFiles){
+					var tempString:String;
+					var cont:int = 0;
+					for each(var renglon:Object in dirFiles){
+						tempString = getFileNameNoExtension(String(renglon.name)).toLowerCase() + getExtension(String(renglon.name));
+						listDirFiles[cont].Resultado = tempString;
+						cont++;
+					}
+					
+					listDirFiles.refresh();
+					applyRegExpBtn.enabled = true;
+				}
+			}
+			
+			private function setCadenaIncrement():void{
+				if(listDirFiles){
+					var tempString:String;
+					var cont:int = 0;
+					var numeracion:String;
+					for each(var renglon:Object in dirFiles){
+						numeracion = (cont<100) ? ( (cont<10) ? "00"+String(cont) : "0"+String(cont)) : String(cont);
+						tempString = nameTextInput.text + numeracion + "." + getExtension(String(renglon.name));
+						listDirFiles[cont].Resultado = tempString;
+						cont++;
+					}
+					
+					listDirFiles.refresh();
+					applyRegExpBtn.enabled = true;
+				}
+				
+			}
+			
+			private function setTimestamp():void{
+				if(listDirFiles){
+					var tempString:String;
+					var cont:int = 0;
+					var numeracion:String;
+					for each(var renglon:Object in dirFiles){
+						numeracion = (cont<100) ? ( (cont<10) ? "00"+String(cont) : "0"+String(cont)) : String(cont);
+						var now:Date = new Date();
+						var timestamp:String = now.valueOf().toString() + numeracion;
+						tempString = timestamp + "." + getExtension(String(renglon.name));
+						listDirFiles[cont].Resultado = tempString;
+						cont++;
+					}
+					listDirFiles.refresh();
+				}
+			}
+			
+			private function stringToRegExp(regExpString:String):RegExp {
+				var regExp:RegExp = new RegExp(regExpString, "g");
+				return regExp;
+			}
+			
+			private function getFileNameNoExtension(string:String):String
+			{
+				var extension:String = string.substring(0,string.lastIndexOf(".")+1);
+				return extension;
+			}
+			
+			private function getExtension(string:String):String
+			{
+				var extension:String = string.substring(string.lastIndexOf(".")+1, string.length);
+				return extension;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" paddingBottom="{PADDING}" paddingLeft="{PADDING}" paddingRight="{PADDING}" paddingTop="{PADDING}"/>
+	</s:layout>
+	
+	<s:HGroup id="seccionSelectDirectorio" width="100%">
+		<s:TextInput id="selectedDirTextInput" prompt=" Selecciona un directorio..." width="100%"/>
+		<s:Button id="searchDir" label="..." click="getDirectory(event)"/>
+	</s:HGroup>
+	
+	<s:HGroup id="seccionRegExp" width="100%" verticalAlign="middle">
+		<s:Label text="Expresión Regular: "/>
+		<s:TextInput id="regExpTextInput" maxWidth="500" width="100%" change="regExpTextInputChange(event)"/>
+		<s:DropDownList id="regEExpDropDown" prompt="Default Expressions" change="regExpDropDownChange(event)">
+			<mx:ArrayCollection>
+				<fx:String>...</fx:String>
+				<fx:String>MAYUSCULAS</fx:String>
+				<fx:String>munisculas</fx:String>
+				<fx:String>Remplazar espacios por...</fx:String>
+				<fx:String>&lt;nombre&gt;_&lt;incremento&gt;.&lt;extension&gt;</fx:String>
+				<fx:String>Timestamp</fx:String>
+			</mx:ArrayCollection>
+		</s:DropDownList>
+	</s:HGroup>
+	
+	<s:HGroup id="seccionReplace" width="100%" verticalAlign="middle" enabled="false">
+		<s:Label text="Remplazar: "/>
+		<s:TextInput id="replaceTextInput" maxWidth="500" width="100%" change="actualizarDataGrid()"/>
+	</s:HGroup>
+	
+	<s:HGroup id="seccionNombre" width="100%" verticalAlign="middle" visible="false">
+		<s:Label text="Nombre del Archivo: "/>
+		<s:TextInput id="nameTextInput" text="Archivo_" maxWidth="500" width="100%" change="setCadenaIncrement()"/>
+	</s:HGroup>
+	
+	<s:DataGrid id="listDirDataGrid" width="100%" height="70%" dataProvider="{listDirFiles}" editable="true">
+		
+	</s:DataGrid>
+	
+	<s:Button id="applyRegExpBtn" label="OK Computer" enabled="false" click="applyBatch(event)"/>
+	
+</s:WindowedApplication>
